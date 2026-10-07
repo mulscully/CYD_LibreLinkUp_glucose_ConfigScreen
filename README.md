@@ -6,10 +6,11 @@ no hub, no phone app required. The device talks straight to LibreLinkUp's API
 over WiFi.
 
 This is **v2**: unlike [v1](../cyd-librelinkup-glucose), nothing is hardcoded into
-the source code. On first boot (or whenever you hold the BOOT button at power-on),
-the device starts its own WiFi setup page where you enter your WiFi, LibreLinkUp
-login, and glucose thresholds — all saved to flash, so anyone can download this
-and configure it without touching a line of code.
+the source code. On first boot (or whenever you hold the BOOT button for a few
+seconds while it's already running), the device starts its own WiFi setup page
+where you enter your WiFi, LibreLinkUp login, and glucose thresholds — all saved
+to flash, so anyone can download this and configure it without touching a line
+of code.
 
 ## Features
 
@@ -18,8 +19,9 @@ and configure it without touching a line of code.
 - Web-based setup portal (via [WiFiManager](https://github.com/tzapu/WiFiManager)) —
   no code editing, no `secrets.h` file to fill in
 - Settings persist across power loss (ESP32's built-in flash storage)
-- Hold the BOOT button at power-on any time to reopen the setup page and change
-  settings, with your current values pre-filled
+- Hold the BOOT button for ~3 seconds any time while it's running (not during
+  power-on — see note below) to reopen the setup page and change settings,
+  with your current values pre-filled
 
 ## Hardware
 
@@ -43,9 +45,16 @@ and configure it without touching a line of code.
    glucose thresholds, and submit.
 7. The device reboots, connects to your WiFi, and starts showing glucose.
 
-**To reconfigure later:** hold the board's BOOT button down while powering it on
-or pressing reset, and the setup page comes back up with your existing settings
-pre-filled.
+**To reconfigure later:** once the device has finished booting and is already
+running normally (showing glucose, or "No data yet..."), press and hold the
+BOOT button for about 3 seconds, then release. The setup page comes back up
+with your existing settings pre-filled.
+
+**Important:** don't hold BOOT *while plugging the device in*. GPIO0 (BOOT) is
+a hardware "strapping pin" on the ESP32 — if it's held low at the exact instant
+of power-on, the chip's own boot ROM enters its flashing/download mode instead
+of running this firmware at all (you'd see a blank screen and no serial output).
+Always let it boot normally first, then hold BOOT to trigger reconfiguration.
 
 ## A note on account types
 

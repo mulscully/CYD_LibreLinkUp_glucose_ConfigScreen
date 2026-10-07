@@ -36,7 +36,7 @@
 // How often to refresh (ms).
 const unsigned long REFRESH_INTERVAL_MS = 60000;
 
-const int STATUS_BAR_WIDTH = 30;
+const int STATUS_BAR_WIDTH = 20;
 
 // BOOT button on most ESP32 dev boards (including the CYD) is wired to GPIO0.
 const int BOOT_BUTTON_PIN = 0;
@@ -473,12 +473,14 @@ void setup() {
   tft.fillScreen(TFT_BLACK);
 
   pinMode(BOOT_BUTTON_PIN, INPUT_PULLUP);
-  bool forcePortal = (digitalRead(BOOT_BUTTON_PIN) == LOW);
-  if (forcePortal) {
-    Serial.println("BOOT button held — forcing config portal.");
-  }
 
-  runWiFiManagerSetup(forcePortal);
+  // IMPORTANT: we deliberately do NOT check the BOOT button here, before WiFi
+  // setup. GPIO0 (BOOT) is a hardware "strapping pin" — if it's held LOW at
+  // the exact instant of power-on/reset, the ESP32's own boot ROM enters its
+  // flashing/download mode instead of running our firmware at all. Checking
+  // it only works safely *after* normal boot has already completed (see the
+  // hold-to-reconfigure check in loop() instead).
+  runWiFiManagerSetup(false);
 
   tft.fillScreen(TFT_BLACK);
   tft.setTextDatum(MC_DATUM);
@@ -489,7 +491,37 @@ void setup() {
   lastFetch = 0;
 }
 
+// Checks whether BOOT has been held continuously for a few seconds while the
+// device is already running normally (safe — well past the hardware
+// strapping window that only matters at the instant of reset/power-on).
+// Returns true once the hold threshold is reached.
+unsigned long bootHeldSince = 0;
+const unsigned long BOOT_HOLD_MS = 3000;
+
+bool checkForReconfigureHold() {
+  if (digitalRead(BOOT_BUTTON_PIN) == LOW) {
+    if (bootHeldSince == 0) {
+      bootHeldSince = millis();
+    } else if (millis() - bootHeldSince >= BOOT_HOLD_MS) {
+      bootHeldSince = 0; // reset so it doesn't immediately re-trigger
+      return true;
+    }
+  } else {
+    bootHeldSince = 0; // released early, cancel the hold
+  }
+  return false;
+}
+
 void loop() {
+  if (checkForReconfigureHold()) {
+    Serial.println("BOOT held for 3s during normal operation — entering config portal.");
+    runWiFiManagerSetup(true);
+    // After the portal finishes (or times out), fall through and keep running
+    // normally — login()/fetch will pick up any newly saved credentials.
+    loggedIn = false; // force a fresh login attempt with whatever was just saved
+    lastFetch = 0;
+  }
+
   if (WiFi.status() != WL_CONNECTED) {
     // WiFiManager already handles the initial connection; if it drops later,
     // just let the ESP32's own WiFi stack attempt reconnection automatically
