@@ -5,6 +5,9 @@ directly on a "Cheap Yellow Display" (CYD, ESP32-2432S028R) — no Home Assistan
 no hub, no phone app required. The device talks straight to LibreLinkUp's API
 over WiFi.
 
+![Glucose display example](docs/example.jpg)
+
+
 This is **v2**: unlike [v1](../cyd-librelinkup-glucose), nothing is hardcoded into
 the source code. On first boot (or whenever you hold the BOOT button for a few
 seconds while it's already running), the device starts its own WiFi setup page

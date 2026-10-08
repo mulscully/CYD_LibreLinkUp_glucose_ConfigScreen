@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CYD LibreLinkUp Glucose Display — Web Installer</title>
+<script type="module" src="https://cdn.jsdelivr.net/npm/esp-web-tools@10.4.0/dist/web/install-button.js?module"></script>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #171a21;
+    --text: #e7e9ee;
+    --muted: #9aa1ad;
+    --accent: #3ddc84;
+    --accent-dark: #28a564;
+    --border: #262a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    padding: 48px 20px;
+  }
+  .card {
+    max-width: 560px;
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px;
+  }
+  h1 {
+    font-size: 1.6rem;
+    margin: 0 0 8px;
+  }
+  .subtitle {
+    color: var(--muted);
+    margin: 0 0 28px;
+    line-height: 1.5;
+  }
+  .install-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 24px 0;
+  }
+  esp-web-install-button {
+    --esp-tools-button-color: #fff;
+    --esp-tools-button-bg: var(--accent-dark);
+  }
+  .install-count {
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .install-count strong {
+    color: var(--accent);
+  }
+  .browser-note {
+    background: #26200f;
+    border: 1px solid #4a3a12;
+    color: #e3c572;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    margin: 24px 0;
+  }
+  ol {
+    color: var(--muted);
+    line-height: 1.7;
+    padding-left: 22px;
+  }
+  ol li strong { color: var(--text); }
+  footer {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>CYD Glucose Display</h1>
+    <p class="subtitle">
+      Flash live LibreLinkUp glucose monitoring straight to your ESP32-2432S028R
+      ("CYD") board — directly from this page, no software to install.
+    </p>
+
+    <div class="browser-note">
+      ⚠️ Works in <strong>Chrome</strong> or <strong>Edge</strong> only (desktop).
+      Safari and Firefox don't support the browser feature this needs.
+    </div>
+
+    <div class="install-row">
+      <esp-web-install-button manifest="manifest.json">
+        <button slot="activate">Install Firmware</button>
+        <span slot="unsupported">Your browser doesn't support Web Serial. Try Chrome or Edge on desktop.</span>
+        <span slot="not-allowed">This page must be served over HTTPS to install firmware.</span>
+      </esp-web-install-button>
+      <span class="install-count" id="installCount"></span>
+    </div>
+
+    <ol>
+      <li>Plug your CYD into this computer via USB.</li>
+      <li>Click <strong>Install Firmware</strong> above and select the device when your browser asks.</li>
+      <li>Once flashing finishes, the CYD's screen will show a WiFi network name to join
+          (something like <strong>CYD-Glucose-Setup</strong>) and an address to visit.</li>
+      <li>Join that WiFi network from your phone, open the setup page, and enter your
+          home WiFi, LibreLinkUp login, and glucose thresholds.</li>
+      <li>It reboots and starts showing glucose readings.</li>
+    </ol>
+
+    <footer>
+      Source code, hardware details, and troubleshooting notes:
+      <a href="https://github.com/mulscully/cyd-librelinkup-glucose-v2" target="_blank" rel="noopener">
+        github.com/mulscully/cyd-librelinkup-glucose-v2
+      </a>
+    </footer>
+  </div>
+
+  <script type="module">
+    // Free, no-account counter service. Two things kept deliberately simple:
+    // 1. We only increment on an actual successful flash (state "FINISHED" with
+    //    no error), not on every page view or button click.
+    // 2. Every call is wrapped so that if this free service is ever slow, down,
+    //    or blocked, the page and the installer itself keep working fine —
+    //    the counter just silently doesn't update rather than breaking anything.
+    const COUNTER_KEY = 'cyd_librelinkup_glucose_v2_installs';
+    const COUNTER_BASE = 'https://countapi.mileshilliard.com/api/v1';
+
+    async function refreshDisplayedCount() {
+      try {
+        const res = await fetch(`${COUNTER_BASE}/get/${COUNTER_KEY}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        document.getElementById('installCount').textContent =
+          `${data.value} install${data.value === 1 ? '' : 's'} so far`;
+      } catch (err) {
+        // Service unavailable — fail silently, no broken UI.
+      }
+    }
+
+    async function recordInstall() {
+      try {
+        const res = await fetch(`${COUNTER_BASE}/hit/${COUNTER_KEY}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        document.getElementById('installCount').textContent =
+          `${data.value} install${data.value === 1 ? '' : 's'} so far`;
+      } catch (err) {
+        // Service unavailable — fail silently.
+      }
+    }
+
+    refreshDisplayedCount();
+
+    const installButton = document.querySelector('esp-web-install-button');
+    installButton.addEventListener('state-changed', (ev) => {
+      const state = ev.detail;
+      if (state && state.state === 'FINISHED' && !state.message) {
+        recordInstall();
+      }
+    });
+  </script>
+</body>
+</html>
